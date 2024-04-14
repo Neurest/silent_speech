@@ -7,6 +7,7 @@ import soundfile as sf
 import librosa
 import tqdm
 
+
 def clean_directory(directory):
     silence, rate = sf.read(os.path.join(directory, '0_audio.flac'))
 
@@ -62,6 +63,7 @@ def clean_directory(directory):
 
         clean_full_name = fname[:-5] + '_clean.flac'
         sf.write(clean_full_name, clean, rate)
+
 
 assert len(sys.argv) > 1, 'requires at least 1 argument: the directories to process'
 for i in range(1, len(sys.argv)):

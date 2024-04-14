@@ -1,6 +1,7 @@
 import os
 import nltk
 
+
 class Book(object):
     def __init__(self, book_file):
         self.file = book_file

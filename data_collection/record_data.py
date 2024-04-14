@@ -9,18 +9,22 @@ import brainflow
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 
 
+
 def remove_drift(signal, fs):
     b, a = scipy.signal.butter(3, 2, 'highpass', fs=fs)
     return scipy.signal.filtfilt(b, a, signal)
+
 
 def notch(signal, freq, sample_frequency):
     b, a = scipy.signal.iirnotch(freq, 30, sample_frequency)
     return scipy.signal.filtfilt(b, a, signal)
 
+
 def notch_harmonics(signal, freq, sample_frequency):
     for f in range(freq, sample_frequency//2, freq):
         signal = notch(signal, f, sample_frequency)
     return signal
+
 
 def filter_signal(signals, fs):
     """ signals is 2d: time, channels """
@@ -31,6 +35,7 @@ def filter_signal(signals, fs):
         x = remove_drift(x, fs)
         result[:,i] = x
     return result
+
 
 def get_last_sequence(chunk_list, n, k, do_filtering, fs):
     cumulative_size = 0
@@ -51,6 +56,7 @@ def get_last_sequence(chunk_list, n, k, do_filtering, fs):
         result_padded = result
     return result_padded
 
+
 class Recorder(object):
     def __init__(self, debug=False, display=True, num_channels=None, wifi=False):
         # make audio stream
@@ -65,7 +71,7 @@ class Recorder(object):
             sample_rate = 256
         elif not wifi:
             board_id = BoardIds.CYTON_BOARD.value
-            params.serial_port = '/dev/cu.usbserial-DP04VYFL'
+            params.serial_port = '/dev/cu.usbserial-DP04VYFL' 
             sample_rate = 250
         else:
             board_id = BoardIds.CYTON_WIFI_BOARD.value
@@ -141,7 +147,7 @@ class Recorder(object):
         current_audio = []
         while self.audio_stream.read_available > 0: # because stream.read_available seems to max out, leading us to not read enough with one read
             data, overflowed = self.audio_stream.read(self.audio_stream.read_available)
-            assert not overflowed
+            # assert not overflowed
             current_audio.append(data)
         if len(current_audio) > 0:
             self.audio_data.append(np.concatenate(current_audio,0))
@@ -155,7 +161,7 @@ class Recorder(object):
                     self.previous_sample_number = sn
 
                 is_digital_inputs = data[12,:] == 193
-                button_data = data[16,is_digital_inputs].astype(np.bool)
+                button_data = data[16,is_digital_inputs].astype(np.bool_)
                 self.button_data.append(button_data)
                 if sum(button_data) != 0:
                     print('button pressed')
@@ -163,7 +169,7 @@ class Recorder(object):
     def get_data(self):
         emg = np.concatenate(self.emg_data, 0)
         audio = np.concatenate(self.audio_data, 0).squeeze(1)
-        button = np.concatenate(self.button_data, 0)
+        button = np.concatenate(self.button_data, 0) if len(self.button_data) > 0 else np.array([])
         chunk_sizes = [(e.shape[0],a.shape[0],b.shape[0]) for e, a, b in zip(self.emg_data, self.audio_data, self.button_data)]
         self.emg_data = []
         self.audio_data = []
@@ -183,7 +189,8 @@ class Recorder(object):
 
         plt.close()
 
+
 if __name__ == '__main__':
-    with Recorder(debug=False, wifi=True, num_channels=1) as r:
+    with Recorder(debug=False, wifi=False, num_channels=8) as r:
         while True:
             r.update()

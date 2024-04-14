@@ -1,4 +1,4 @@
-name: silent_speech
+name: silent_speech2
 channels:
   - conda-forge
   - pytorch
