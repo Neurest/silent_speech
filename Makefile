@@ -15,3 +15,9 @@ docker-push:
 docker-build-and-push: 
 	$(MAKE) docker-build 
 	$(MAKE) docker-push
+
+record-reading:
+	poetry run python data_collection/record_reading.py --output_directory data/tmp/record_reading --book_file data/tmp/book_file.txt --debug True
+
+nltk-download-punkt:
+	poetry run python -c "import nltk; nltk.download('punkt')"

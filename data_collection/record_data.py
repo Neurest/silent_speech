@@ -6,8 +6,8 @@ import sounddevice as sd
 import scipy.signal
 
 import brainflow
-from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds, IpProtocolType
-from brainflow.data_filter import DataFilter, FilterTypes, AggOperations
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
+
 
 def remove_drift(signal, fs):
     b, a = scipy.signal.butter(3, 2, 'highpass', fs=fs)
@@ -52,7 +52,7 @@ def get_last_sequence(chunk_list, n, k, do_filtering, fs):
     return result_padded
 
 class Recorder(object):
-    def __init__(self, debug=False, display=True, num_channels=None, wifi=True):
+    def __init__(self, debug=False, display=True, num_channels=None, wifi=False):
         # make audio stream
 
         self.audio_stream = sd.InputStream(device=None, channels=1, samplerate=16000)
@@ -65,7 +65,7 @@ class Recorder(object):
             sample_rate = 256
         elif not wifi:
             board_id = BoardIds.CYTON_BOARD.value
-            params.serial_port = '/dev/ttyUSB0'
+            params.serial_port = '/dev/cu.usbserial-DP04VYFL'
             sample_rate = 250
         else:
             board_id = BoardIds.CYTON_WIFI_BOARD.value
