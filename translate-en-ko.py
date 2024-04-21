@@ -12,7 +12,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     pipe = pipeline("translation", model="Helsinki-NLP/opus-mt-tc-big-en-ko")
-    pipe.to('cuda')
 
     for info_path in tqdm(glob(f"{args.input_folder}/**/*_info.json", recursive=True)):
         info = json.load(open(info_path))
