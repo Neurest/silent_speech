@@ -1,8 +1,26 @@
+import json
+import argparse
+from glob import glob
+from tqdm import tqdm
 from TTS.api import TTS
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
 
-# generate speech by cloning a voice using default settings
-tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-                file_path="output.wav",
-                speaker_wav="/path/to/target/speaker.wav",
-                language="en")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='TTS')
+    parser.add_argument('--tts_model', default='tts_models/multilingual/multi-dataset/xtts_v2', help='TTS model')
+    parser.add_argument('--input_folder', default='data/emg_data', help='Input folder')
+    parser.add_argument('--output_folder', default='data/tts_emg_data', help='Output folder')
+    parser.add_argument('--speaker_voice', default='voice_template/nemo.wav', help='Speaker voice')
+    parser.add_argument('--language', default='en', help='Language')
+    args = parser.parse_args()
+
+    tts = TTS(args.tts_model)
+    tts.to('cuda')
+
+    for info_path in tqdm(glob(f"{args.input_folder}/**/*.json", recursive=True)):
+        info = json.load(open(info_path))
+        tts.tts_to_file(
+            text=info,
+            file_path=f"{args.output_folder}/{info_path.split('/')[-1].replace('.txt', '.wav')}",
+            speaker_wav=args.speaker_voice,
+            language=args.language
+        )
