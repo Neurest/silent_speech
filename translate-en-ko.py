@@ -3,13 +3,29 @@ import json
 import argparse
 from glob import glob
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import transformers
+import torch
 
-def transliteration(word: str):
-    encoded_en = tokenizer(word, truncation=True, max_length=48, return_tensors="pt")
-    generated_tokens = model.generate(**encoded_en)
-    result = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-    return result
+
+def translation(text):
+    messages = [
+        {"role": "system", "content": "너는 최고의 영어->한국어 번역기야! 한글만 말할 수 있어."},
+        {"role": "user", "content": f"다음 문장을 한국어로 번역하고, 답은 번역한 문장만 줘. \n 번역 문장:{text}"},
+    ]
+    prompt = pipeline.tokenizer.apply_chat_template(
+            messages, 
+            tokenize=False, 
+            add_generation_prompt=True
+    )
+    outputs = pipeline(
+        prompt,
+        max_new_tokens=256,
+        eos_token_id=terminators,
+        do_sample=True,
+        temperature=0.6,
+        top_p=0.9,
+    )
+    return outputs[0]["generated_text"][len(prompt):]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Translation')
@@ -17,9 +33,18 @@ if __name__ == "__main__":
     parser.add_argument('--output_folder', default='data/ko_emg_data', help='Output folder')
     args = parser.parse_args()
 
-    model_checkpoint = "eunsour/en-ko-transliterator"
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)
-    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, src_lang="en", tgt_lang="ko")
+    model_id = "meta-llama/Meta-Llama-3-70B-Instruct"
+    pipeline = transformers.pipeline(
+        "text-generation",
+        model=model_id,
+        model_kwargs={"torch_dtype": torch.bfloat16},
+        device="auto",
+    )
+
+    terminators = [
+        pipeline.tokenizer.eos_token_id,
+        pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+    ]
 
     for info_path in tqdm(glob(f"{args.input_folder}/**/*_info.json", recursive=True)):
         info = json.load(open(info_path))
@@ -29,6 +54,9 @@ if __name__ == "__main__":
 
         text = info['text']
         if isinstance(text, str) and len(text) > 0:
-            text_ko = transliteration(text)
+            text_ko = translation(text)
+            print(f"Input: {text}")
+            print(f"Output: {text_ko}")
+            
             with open(out_file_path, 'w') as f:
                 f.write(text_ko)
