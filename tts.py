@@ -16,11 +16,11 @@ if __name__ == "__main__":
     tts = TTS(args.tts_model)
     tts.to('cuda')
 
-    for info_path in tqdm(glob(f"{args.input_folder}/**/*.json", recursive=True)):
+    for info_path in tqdm(glob(f"{args.input_folder}/**/*_info.json", recursive=True)):
         info = json.load(open(info_path))
         tts.tts_to_file(
             text=info['text'],
-            file_path=info_path.replace(args.input_folder, args.output_folder).replace('.json', '.wav'),
+            file_path=info_path.replace(args.input_folder, args.output_folder).replace('_info.json', '_tts.wav'),
             speaker_wav=args.speaker_voice,
             language=args.language
         )
