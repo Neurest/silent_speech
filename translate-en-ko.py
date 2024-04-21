@@ -21,6 +21,6 @@ if __name__ == "__main__":
 
         text = info['text']
         if isinstance(text, str) and len(text) > 0:
-            text_ko = pipe("2, 4, 6 etc. are even numbers.")
+            text_ko = pipe(text)[0]['translation_text']
             with open(out_file_path, 'w') as f:
                 f.write(text_ko)
