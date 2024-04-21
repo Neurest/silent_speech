@@ -19,7 +19,7 @@ if __name__ == "__main__":
     for info_path in tqdm(glob(f"{args.input_folder}/**/*.json", recursive=True)):
         info = json.load(open(info_path))
         tts.tts_to_file(
-            text=info,
+            text=info['text'],
             file_path=info_path.replace(args.input_folder, args.output_folder).replace('.json', '.wav'),
             speaker_wav=args.speaker_voice,
             language=args.language
