@@ -20,7 +20,7 @@ if __name__ == "__main__":
         info = json.load(open(info_path))
         tts.tts_to_file(
             text=info,
-            file_path=f"{args.output_folder}/{info_path.split('/')[-1].replace('.txt', '.wav')}",
+            file_path=info_path.replace(args.input_folder, args.output_folder).replace('.json', '.wav'),
             speaker_wav=args.speaker_voice,
             language=args.language
         )
