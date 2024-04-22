@@ -9,8 +9,8 @@ import torch
 
 def translation(text):
     messages = [
-        {"role": "system", "content": "너는 최고의 영어->한국어 번역기야!"},
-        {"role": "user", "content": f"다음 문장을 한국어로 번역하고, 답은 번역한 문장만 줘. \n 번역 문장:{text}"},
+        {"role": "system", "content": "너는 21세기 최고의 영어->한국어 번역가야. 오직 한국어만 말할 수 있어."},
+        {"role": "user", "content": f"다음 문장을 오직 한국어로만 번역하고, 답은 번역한 문장만 줘. \n 번역 문장: {text}"},
     ]
     prompt = pipeline.tokenizer.apply_chat_template(
             messages, 
