@@ -9,7 +9,7 @@ import torch
 
 def translation(text):
     messages = [
-        {"role": "system", "content": "너는 최고의 영어->한국어 번역기야! 한글만 말할 수 있어."},
+        {"role": "system", "content": "너는 최고의 영어->한국어 번역기야!"},
         {"role": "user", "content": f"다음 문장을 한국어로 번역하고, 답은 번역한 문장만 줘. \n 번역 문장:{text}"},
     ]
     prompt = pipeline.tokenizer.apply_chat_template(
@@ -33,12 +33,14 @@ if __name__ == "__main__":
     parser.add_argument('--output_folder', default='data/ko_emg_data', help='Output folder')
     args = parser.parse_args()
 
-    model_id = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model_id = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+    model_id = "NousResearch/Meta-Llama-3-8B-Instruct"
     pipeline = transformers.pipeline(
         "text-generation",
         model=model_id,
         model_kwargs={"torch_dtype": torch.bfloat16},
-        device="auto",
+        device="cuda",
     )
 
     terminators = [
@@ -57,6 +59,6 @@ if __name__ == "__main__":
             text_ko = translation(text)
             print(f"Input: {text}")
             print(f"Output: {text_ko}")
-            
+
             with open(out_file_path, 'w') as f:
                 f.write(text_ko)
