@@ -1,6 +1,8 @@
 .vscode/
 __pycache__/
 emg_data/
+ko_emg_data/
+tts_emg_data/
 models/
 deepspeech-0.7.0-models.pbmm
 deepspeech-0.7.0-models.scorer

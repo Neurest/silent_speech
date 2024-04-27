@@ -9,7 +9,6 @@ import brainflow
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 
 
-
 def remove_drift(signal, fs):
     b, a = scipy.signal.butter(3, 2, 'highpass', fs=fs)
     return scipy.signal.filtfilt(b, a, signal)
