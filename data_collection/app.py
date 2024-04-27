@@ -1,15 +1,58 @@
 import time
+import json
 import threading
 from enum import Enum
 
 import cv2
 import pandas as pd
 import gradio as gr
+from glob import glob
 
 from record_data import Recorder
 
 
-## Constants ##
+## Data ##
+DATA_DIR = "./data_collection/emg_data"
+KO_DATA_DIR = "./data_collection/ko_emg_data"
+TTS_DATA_DIR = "./data_collection/tts_emg_data"
+INTERMEDIATE_DIR = "voiced_parallel_data/5-4"
+
+FILES = glob(f"{DATA_DIR}/{INTERMEDIATE_DIR}/*.json")
+KO_FILES = glob(f"{KO_DATA_DIR}/{INTERMEDIATE_DIR}/*.txt")
+TTS_FILES = glob(f"{TTS_DATA_DIR}/{INTERMEDIATE_DIR}/*.wav")
+
+def read_data():
+    data = []
+
+    for ko_file in KO_FILES:
+        index = ko_file.split("/")[-1].split("_")[0]
+
+        file = f"{DATA_DIR}/{INTERMEDIATE_DIR}/{index}_info.json"
+
+        with open(file, "r") as f:
+            info = json.load(f)
+            sentence_en = info["text"]
+
+        with open(ko_file, "r") as f:
+            sentence_kr = f.read()
+
+        tts_audio_path = f"{TTS_DATA_DIR}/{INTERMEDIATE_DIR}/{index}_tts.wav"
+
+        sample = {
+            "original_index": int(index),
+            "sentence_en": sentence_en,
+            "sentence_kr": sentence_kr,
+            "tts_audio_path": tts_audio_path,
+        }
+
+        data.append(sample)
+
+    data = sorted(data, key=lambda x: x["original_index"])
+
+    return data
+
+DATA = read_data()
+
 SUBJECT_DB = [
     {
         "id": 0,
@@ -25,38 +68,27 @@ SUBJECT_DB = [
     },
 ]
 
-TEXT_CORPUS_EN = [
-    "The quick brown fox jumps over the lazy dog.",
-    "The five boxing wizards jump quickly.",
-    "Pack my box with five dozen liquor jugs.",
-]
 
-TEXT_CORPUS_KR = [
-    "빠른 갈색 여우가 게으른 개를 뛰어넘습니다.",
-    "다섯 명의 복싱 마법사들이 빨리 뛰어넘습니다.",
-    "내 상자에는 다섯 다스의 술병이 들어 있습니다.",
-]
-
-DATA_DIR = "./data_collection/emg_data"
-
+## Style ##
 EMG_PLOT_WIDTH = 600
-
 EMG_PLOT_HEIGHT = 100
 
 
 ## Progress ##
 class Progress(Enum):
-    START = 0
-    LISTEN_TTS_AUDIO_DONE = 1
-    VOCALIZED_SPEECH_RECORDING_DONE = 2
-    SILENT_SPEECH_RECORDING_DONE = 3
+    START = "START"
+    VOCALIZED_SPEECH_RECORDING_IN_PROGRESS = "VOCALIZED_SPEECH_RECORDING_IN_PROGRESS"
+    VOCALIZED_SPEECH_RECORDING_DONE = "VOCALIZED_SPEECH_RECORDING_DONE"
+    SILENT_SPEECH_RECORDING_IN_PROGRESS = "SILENT_SPEECH_RECORDING_IN_PROGRESS"
+    SILENT_SPEECH_RECORDING_DONE = "SILENT_SPEECH_RECORDING_DONE"
 
 
 PROGRESS_INSTRUCTION_MAP = {
-    Progress.START.value: "Press TTS Audio Button (0/3)",
-    Progress.LISTEN_TTS_AUDIO_DONE.value: "Press Vocalized Speech Recording button (1/3)",
-    Progress.VOCALIZED_SPEECH_RECORDING_DONE.value: "Press Silent Speech Recording Button (2/3)",
-    Progress.SILENT_SPEECH_RECORDING_DONE.value: "Press Next Sample Button (3/3)",
+    Progress.START.value: "Step 1. Press Vocalized Speech Button",
+    Progress.VOCALIZED_SPEECH_RECORDING_IN_PROGRESS.value: "Step 2. Press Stop Button",
+    Progress.VOCALIZED_SPEECH_RECORDING_DONE.value: "Step 3. Press Silent Speech Button",
+    Progress.SILENT_SPEECH_RECORDING_IN_PROGRESS.value: "Step 4. Press Stop Button",
+    Progress.SILENT_SPEECH_RECORDING_DONE.value: "Step 5. Press Next Sample Button",
 }
 
 
@@ -80,106 +112,70 @@ def get_emg_plot():
     global emg_data
 
     if emg_data is None:
-        return (None,) * 8
+        return None
 
     x = range(len(emg_data[0]))
 
-    df = pd.DataFrame({
-        "x": x,
-        "y0": emg_data[0],
-        "y1": emg_data[1],
-        "y2": emg_data[2],
-        "y3": emg_data[3],
-        "y4": emg_data[4],
-        "y5": emg_data[5],
-        "y6": emg_data[6],
-        "y7": emg_data[7],
+    df0 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[0],
+        "Channel": "Channel 0",
     })
+    df1 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[1],
+        "Channel": "Channel 1",
+    })
+    df2 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[2],
+        "Channel": "Channel 2",
+    })
+    df3 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[3],
+        "Channel": "Channel 3",
+    })
+    df4 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[4],
+        "Channel": "Channel 4",
+    })
+    df5 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[5],
+        "Channel": "Channel 5",
+    })
+    df6 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[6],
+        "Channel": "Channel 6",
+    })
+    df7 = pd.DataFrame({
+        "Time": x,
+        "Amplitude": emg_data[7],
+        "Channel": "Channel 7",
+    })
+    df = pd.concat([df0, df1, df2, df3, df4, df5, df6, df7], axis=0)
 
     print(df)
 
-    emg_c0_plot = gr.LinePlot(
+    emg_plot = gr.LinePlot(
         value=df,
-        x="x",
-        y="y0",
-        title="EMG C0",
+        x="Time",
+        y="Amplitude",
+        color="Channel",
+        color_legend_position="bottom",
+        title="EMG",
+        tooltip=["Time", "Amplitude", "Channel"],
         width=EMG_PLOT_WIDTH,
         height=EMG_PLOT_HEIGHT,
         x_lim=[0, 15],
         y_lim=[-500, 500],
-    )
-    emg_c1_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y1",
-        title="EMG C1",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c2_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y2",
-        title="EMG C2",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c3_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y3",
-        title="EMG C3",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c4_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y4",
-        title="EMG C4",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c5_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y5",
-        title="EMG C5",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c6_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y6",
-        title="EMG C6",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
-    )
-    emg_c7_plot = gr.LinePlot(
-        value=df,
-        x="x",
-        y="y7",
-        title="EMG C7",
-        width=EMG_PLOT_WIDTH,
-        height=EMG_PLOT_HEIGHT,
-        x_lim=[0, 15],
-        y_lim=[-500, 500],
+        container=False,
     )
 
-    return emg_c0_plot, emg_c1_plot, emg_c2_plot, emg_c3_plot, emg_c4_plot, emg_c5_plot, emg_c6_plot, emg_c7_plot
+    return emg_plot
 
 
 ## Utility Functions ##
@@ -191,129 +187,130 @@ def draw_face_guide(im):
     return im
 
 
+def save_data(emg_data, audio, video, sample_id, subject_id, speech_type):
+    # TODO (alan): implement this function
+    pass
+
+
 ## Gradio ##
-with gr.Blocks(title="Data Collection", css="./data_collection/style.css") as demo:
+with gr.Blocks(title="EMG Data Collection", css="./data_collection/style.css") as demo:
 
     with gr.Row():
 
-        with gr.Column():
-            gr.Markdown("# Data Collection")
+        with gr.Column(scale=99):
+            gr.HTML(value="<h1>EMG Data Collection</h1>")
 
-        with gr.Column():
-            subject_id = gr.Slider(
+        with gr.Column(scale=1, min_width=150, variant="compact"):
+            subject_id = gr.Dropdown(
                 label="Subject ID",
-                minimum=0,
-                maximum=len(SUBJECT_DB) - 1,
-                value=0,
-                step=1,
+                choices=[subject["id"] for subject in SUBJECT_DB],
+                value=SUBJECT_DB[0]["id"],
             )
+
+        with gr.Column(scale=1, min_width=150, variant="compact"):
             subject_name = gr.Textbox(
                 label="Subject Name",
                 value=SUBJECT_DB[0]["name"],
+                interactive=False,
             )
 
     with gr.Row():
 
-        with gr.Column(scale=50):
-            sample_id = gr.Slider(
-                label="Sample ID",
-                minimum=0,
-                maximum=len(TEXT_CORPUS_EN) - 1,
-                value=0,
-                step=1,
-            )
-            sentence = gr.Label(
-                label="Sentence (en)",
-                value=TEXT_CORPUS_EN[0],
-            )
-            sentence_kr = gr.Textbox(
-                label="Sentence (kr)",
-                value=TEXT_CORPUS_KR[0],
-                interactive=False,
-            )
-            progress = gr.Textbox(
-                label="Progress",
-                value=PROGRESS_INSTRUCTION_MAP[Progress.START.value],
-                interactive=False,
-            )
+        with gr.Column(scale=55):
+
             with gr.Row():
-                listen_tts_audio_button = gr.Button(
-                    value="▶ TTS Audio",
-                    variant="secondary",
+                sample_id = gr.Slider(
+                    label="Sample ID",
+                    minimum=0,
+                    maximum=len(DATA) - 1,
+                    value=0,
+                    step=1,
                 )
-                start_v_emg_recording_button = gr.Button(
-                    value="Vocalized Speech Recording",
-                    variant="primary",
+
+            with gr.Row():
+                sentence = gr.Label(
+                    label="Sentence (en)",
+                    show_label=False,
+                    value=DATA[0]["sentence_en"],
                 )
-                stop_v_emg_recording_button = gr.Button(
-                    value="Stop",
-                    variant="stop",
-                    visible=False,
+
+            with gr.Row():
+                tts_audio = gr.Audio(
+                    label="TTS Audio",
+                    show_label=False,
+                    value=DATA[0]["tts_audio_path"],
+                    interactive=False,
+                    autoplay=True,
                 )
-                start_s_emg_recording_button = gr.Button(
-                    value="Silent Speech Recording",
-                    variant="primary",
+
+            with gr.Row():
+                sentence_kr = gr.Textbox(
+                    label="Translation",
+                    value=DATA[0]["sentence_kr"],
+                    interactive=False,
                 )
-                stop_s_emg_recording_button = gr.Button(
-                    value="Stop",
-                    variant="stop",
-                    visible=False,
+
+            with gr.Row():
+                progress = gr.Textbox(
+                    label="Steps",
+                    value=PROGRESS_INSTRUCTION_MAP[Progress.START.value],
+                    interactive=False,
                 )
-                next_sample_button = gr.Button(
-                    value="Next Sample",
-                    variant="secondary",
-                )
+
+            with gr.Row():
+
+                with gr.Column(min_width=50) as start_v_emg_recording_column:
+                    start_v_emg_recording_button = gr.Button(
+                        value="Vocalized Speech",
+                        variant="primary",
+                        size="lg",
+                    )
+
+                with gr.Column(min_width=50, visible=False) as stop_v_emg_recording_column:
+                    stop_v_emg_recording_button = gr.Button(
+                        value="Stop",
+                        variant="stop",
+                        size="lg",
+                    )
+
+                with gr.Column(min_width=50) as start_s_emg_recording_column:
+                    start_s_emg_recording_button = gr.Button(
+                        value="Silent Speech",
+                        variant="primary",
+                        size="lg",
+                    )
+
+                with gr.Column(min_width=50, visible=False) as stop_s_emg_recording_column:
+                    stop_s_emg_recording_button = gr.Button(
+                        value="Stop",
+                        variant="stop",
+                        size="lg",
+                    )
+
+                with gr.Column(min_width=50):
+                    next_sample_button = gr.Button(
+                        value="Next Sample",
+                        variant="secondary",
+                        size="lg",
+                    )
             
-        with gr.Column(scale=50):
+        with gr.Column(scale=45):
+
             with gr.Row():
                 microphone = gr.Microphone(
                     label="Microphone",
-                    scale=2,
+                    scale=70,
                 )
                 webcam = gr.Image(
                     label="Webcam",
                     sources="webcam",
                     streaming=True,
-                    scale=1,
+                    scale=30,
                 )
+
             with gr.Row():
-                emg_c0 = gr.LinePlot(
-                    label="EMG C0",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c1 = gr.LinePlot(
-                    label="EMG C1",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c2 = gr.LinePlot(
-                    label="EMG C2",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c3 = gr.LinePlot(
-                    label="EMG C3",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c4 = gr.LinePlot(
-                    label="EMG C4",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c5 = gr.LinePlot(
-                    label="EMG C5",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c6 = gr.LinePlot(
-                    label="EMG C6",
-                    width=EMG_PLOT_WIDTH,
-                    height=EMG_PLOT_HEIGHT,
-                )
-                emg_c7 = gr.LinePlot(
-                    label="EMG C7",
+                emg_plot = gr.LinePlot(
+                    label="EMG",
                     width=EMG_PLOT_WIDTH,
                     height=EMG_PLOT_HEIGHT,
                 )
@@ -321,98 +318,120 @@ with gr.Blocks(title="Data Collection", css="./data_collection/style.css") as de
     is_recording = gr.State(value=False)
     current_progress = gr.Textbox(value=Progress.START.value, visible=False)
 
-    def listen_tts_audio():
-        # TODO (alan) play TTS audio
-        next_progress = Progress.LISTEN_TTS_AUDIO_DONE.value
-        return next_progress
-
-    def start_v_emg_recording(start_button, stop_button):
+    def start_v_emg_recording(progress):
+        if progress not in [Progress.START.value, Progress.VOCALIZED_SPEECH_RECORDING_DONE.value]:
+            gr.Warning("You already finished vocalized speech recording.")
+            return {
+                is_recording: False,
+                current_progress: progress,
+                start_v_emg_recording_column: gr.Column(visible=True),
+                stop_v_emg_recording_column: gr.Column(visible=False),
+            }
+        
         global recoder
         # recoder = Recorder(debug=True, display=False)
         # recoder.__enter__()
-        is_recording = True
-        return is_recording, start_button, stop_button
+        return {
+            is_recording: True,
+            current_progress: Progress.VOCALIZED_SPEECH_RECORDING_IN_PROGRESS.value,
+            start_v_emg_recording_column: gr.Column(visible=False),
+            stop_v_emg_recording_column: gr.Column(visible=True),
+        }
 
     def stop_v_emg_recording():
         global recoder
+        # TODO (alan): save EMG data
+        # emg_data, _, _, _ = recoder.get_data()
+        # save_data(emg_data, audio, video, sample_id, subject_id, "vocalized")
         # recoder.__exit__(None, None, None)
         # recoder = None
-        is_recording = False
-        next_progress = Progress.VOCALIZED_SPEECH_RECORDING_DONE.value
-        return is_recording, next_progress
+        return {
+            is_recording: False,
+            current_progress: Progress.VOCALIZED_SPEECH_RECORDING_DONE.value,
+            start_v_emg_recording_column: gr.Column(visible=True),
+            stop_v_emg_recording_column: gr.Column(visible=False),
+        }
 
-    def start_s_emg_recording():
+    def start_s_emg_recording(progress):
+        if progress not in [Progress.VOCALIZED_SPEECH_RECORDING_DONE.value, Progress.SILENT_SPEECH_RECORDING_DONE.value]:
+            gr.Warning("You must finish vocalized speech recording first.")
+            return {
+                is_recording: False,
+                current_progress: progress,
+                start_s_emg_recording_column: gr.Column(visible=True),
+                stop_s_emg_recording_column: gr.Column(visible=False),
+            }
+
         global recoder
         # recoder = Recorder(debug=True, display=False)
         # recoder.__enter__()
-        is_recording = True
-        return is_recording
+        return {
+            is_recording: True,
+            current_progress: Progress.SILENT_SPEECH_RECORDING_IN_PROGRESS.value,
+            start_s_emg_recording_column: gr.Column(visible=False),
+            stop_s_emg_recording_column: gr.Column(visible=True),
+        }
 
     def stop_s_emg_recording():
         global recoder
+        # TODO (alan): save EMG data
+        # emg_data, _, _, _ = recoder.get_data()
+        # save_data(emg_data, audio, video, sample_id, subject_id, "silent")
         # recoder.__exit__(None, None, None)
         # recoder = None
-        is_recording = False
-        next_progress = Progress.SILENT_SPEECH_RECORDING_DONE.value
-        return is_recording, next_progress
+        return {
+            is_recording: False,
+            current_progress: Progress.SILENT_SPEECH_RECORDING_DONE.value,
+            start_s_emg_recording_column: gr.Column(visible=True),
+            stop_s_emg_recording_column: gr.Column(visible=False),
+        }
 
-    def next_sample(sample_id: int):
-        new_sample_id = (sample_id + 1) % len(TEXT_CORPUS_EN)
-        new_sentence = TEXT_CORPUS_EN[new_sample_id]
+    def next_sample(progress, sample_id: int):
+        if progress != Progress.SILENT_SPEECH_RECORDING_DONE.value:
+            gr.Warning("You must finish both vocalized and silent speech recording first.")
+            return sample_id
+
+        new_sample_id = (sample_id + 1) % len(DATA)
+        return new_sample_id
+    
+    def update_sample_id(sample_id: int):
+        next_sentence = DATA[sample_id]["sentence_en"]
+        next_sentence_kr = DATA[sample_id]["sentence_kr"]
+        next_tts_audio_path = DATA[sample_id]["tts_audio_path"]
         next_progress = Progress.START.value
-        return new_sample_id, new_sentence, next_progress
+        return next_sentence, next_sentence_kr, next_tts_audio_path, next_progress
     
-    def update_progress(current_progress: str, progress=gr.Progress()):
-        current_progress = Progress(int(current_progress))
-
-        if current_progress == Progress.START:
-            progress(0, desc="A")
-        elif current_progress == Progress.LISTEN_TTS_AUDIO_DONE:
-            progress(1, desc="B")
-        elif current_progress == Progress.VOCALIZED_SPEECH_RECORDING_DONE:
-            progress(2, desc="C")
-        elif current_progress == Progress.SILENT_SPEECH_RECORDING_DONE:
-            progress(3, desc="D")
-        return PROGRESS_INSTRUCTION_MAP[current_progress.value]
-    
-    listen_tts_audio_button.click(
-        listen_tts_audio,
-        inputs=[],
-        outputs=[current_progress],
-    )
+    def update_progress(progress):
+        return PROGRESS_INSTRUCTION_MAP[progress]
     
     start_v_emg_recording_button.click(
         start_v_emg_recording,
-        inputs=[start_v_emg_recording_button, stop_v_emg_recording_button],
-        outputs=[is_recording, start_v_emg_recording_button, stop_v_emg_recording_button],
-        js="",
+        inputs=[current_progress],
+        outputs=[is_recording, current_progress, start_v_emg_recording_column, stop_v_emg_recording_column],
     )
 
     stop_v_emg_recording_button.click(
         stop_v_emg_recording,
         inputs=[],
-        outputs=[is_recording, current_progress],
-        js="",
+        outputs=[is_recording, current_progress, start_v_emg_recording_column, stop_v_emg_recording_column],
     )
 
     start_s_emg_recording_button.click(
         start_s_emg_recording,
-        inputs=[],
-        outputs=[is_recording],
-        js="",
+        inputs=[current_progress],
+        outputs=[is_recording, current_progress, start_s_emg_recording_column, stop_s_emg_recording_column],
     )
 
     stop_s_emg_recording_button.click(
         stop_s_emg_recording,
         inputs=[],
-        outputs=[is_recording, current_progress],
-        js="",
+        outputs=[is_recording, current_progress, start_s_emg_recording_column, stop_s_emg_recording_column],
     )
 
     next_sample_button.click(
         next_sample,
-        inputs=[sample_id],
-        outputs=[sample_id, sentence, current_progress],
+        inputs=[current_progress, sample_id],
+        outputs=[sample_id],
     )
 
     subject_id.change(
@@ -423,9 +442,9 @@ with gr.Blocks(title="Data Collection", css="./data_collection/style.css") as de
     )
 
     sample_id.change(
-        lambda value: (TEXT_CORPUS_EN[value], TEXT_CORPUS_KR[value]),
+        update_sample_id,
         inputs=[sample_id],
-        outputs=[sentence, sentence_kr],
+        outputs=[sentence, sentence_kr, tts_audio, current_progress],
         show_progress=False,
     )
 
@@ -438,7 +457,7 @@ with gr.Blocks(title="Data Collection", css="./data_collection/style.css") as de
     demo.load(
         get_emg_plot,
         None,
-        [emg_c0, emg_c1, emg_c2, emg_c3, emg_c4, emg_c5, emg_c6, emg_c7],
+        emg_plot,
         every=1e-5,
     )
 
