@@ -1,6 +1,7 @@
 poetry-install:
 	curl -sSL https://install.python-poetry.org | python3 -
 	poetry install
+	poetry run pip install tts
 
 check-quality:
 	flake8 iclx
